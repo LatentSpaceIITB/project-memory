@@ -1,0 +1,24 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // DEVELOPMENT/TEST MODE RULES
+    // WARNING: These rules allow anyone to read/write to your database
+    // Only use during MVP testing, then add proper authentication
+
+    match /memories/{memoryId} {
+      // Allow anyone to read any memory (needed for viewing)
+      allow read: if true;
+
+      // Allow anyone to update if they're only updating friend fields
+      allow update: if request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['friendVideoUrl', 'friendSubmittedAt', 'status', 'friendName']);
+
+      // Allow creators to create new memories (you'll add auth later)
+      allow create: if true;
+
+      // Allow deletion (for testing only)
+      allow delete: if true;
+    }
+  }
+}

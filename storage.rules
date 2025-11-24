@@ -1,0 +1,22 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // DEVELOPMENT/TEST MODE RULES
+    // WARNING: These rules allow anyone to read/write to your storage
+    // Only use during MVP testing
+
+    match /memories/{memoryId}/{fileName} {
+      // Allow anyone to read files (needed for viewing videos/photos)
+      allow read: if true;
+
+      // Allow anyone to write files (needed for friend video uploads)
+      allow write: if true;
+    }
+
+    // Fallback: allow all (for testing)
+    match /{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}
