@@ -1,32 +1,33 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '@/lib/firebase';
-import { Memory, RecordingState } from '@/types/memory';
-import { Play, Pause, Mic, Square, Send, RotateCcw, AlertCircle } from 'lucide-react';
+import { Mic, Square, Send, RotateCcw, AlertCircle, ArrowLeft } from 'lucide-react';
 
-interface RecordingInterfaceProps {
-  memory: Memory;
+interface CreatorRecordingInterfaceProps {
+  photoUrl: string;
+  creatorName: string;
+  onVideoRecorded: (blob: Blob) => void;
+  onBack: () => void;
 }
 
 const MAX_ATTEMPTS = 3;
 
-export default function RecordingInterface({ memory }: RecordingInterfaceProps) {
-  const router = useRouter();
+type RecordingState = 'initial' | 'preparing' | 'ready' | 'recording' | 'reviewing';
 
+export default function CreatorRecordingInterface({
+  photoUrl,
+  creatorName,
+  onVideoRecorded,
+  onBack,
+}: CreatorRecordingInterfaceProps) {
   // State management
   const [state, setState] = useState<RecordingState>('initial');
-  const [isCreatorVideoPlaying, setIsCreatorVideoPlaying] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [attemptCount, setAttemptCount] = useState(0);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Refs
-  const creatorVideoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const cameraVideoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -53,18 +54,6 @@ export default function RecordingInterface({ memory }: RecordingInterfaceProps) 
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
-  // Toggle creator video playback
-  const toggleCreatorVideo = () => {
-    if (creatorVideoRef.current) {
-      if (isCreatorVideoPlaying) {
-        creatorVideoRef.current.pause();
-      } else {
-        creatorVideoRef.current.play();
-      }
-      setIsCreatorVideoPlaying(!isCreatorVideoPlaying);
-    }
-  };
-
   // Start recording (request camera access)
   const startRecording = async () => {
     if (attemptCount >= MAX_ATTEMPTS) {
@@ -83,12 +72,6 @@ export default function RecordingInterface({ memory }: RecordingInterfaceProps) 
       });
 
       cameraStreamRef.current = stream;
-
-      // Show camera preview
-      if (cameraVideoRef.current) {
-        cameraVideoRef.current.srcObject = stream;
-        cameraVideoRef.current.muted = true; // Mute preview to avoid feedback
-      }
 
       setState('ready');
     } catch (err) {
@@ -156,47 +139,12 @@ export default function RecordingInterface({ memory }: RecordingInterfaceProps) 
     startRecording();
   };
 
-  // Submit and upload to Firebase
-  const submitResponse = async () => {
-    if (!recordedBlob) return;
-
-    try {
-      setState('uploading');
-      setErrorMessage(null);
-
-      // Upload video to Firebase Storage
-      const videoFileName = `friend-video-${Date.now()}.webm`;
-      const storageRef = ref(storage, `memories/${memory.id}/${videoFileName}`);
-
-      await uploadBytes(storageRef, recordedBlob);
-      const downloadURL = await getDownloadURL(storageRef);
-
-      // Update Firestore document
-      const memoryRef = doc(db, 'memories', memory.id);
-      await updateDoc(memoryRef, {
-        friendVideoUrl: downloadURL,
-        friendSubmittedAt: serverTimestamp(),
-        status: 'completed',
-      });
-
-      // Redirect to split view
-      setState('complete');
-      router.push(`/m/${memory.id}`);
-    } catch (err) {
-      console.error('Upload error:', err);
-      setErrorMessage('Failed to upload video. Please try again.');
-      setState('reviewing');
+  // Submit video
+  const submitVideo = () => {
+    if (recordedBlob) {
+      onVideoRecorded(recordedBlob);
     }
   };
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (cameraStreamRef.current) {
-        cameraStreamRef.current.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, []);
 
   // Assign stream to video element when it becomes available
   useEffect(() => {
@@ -208,18 +156,30 @@ export default function RecordingInterface({ memory }: RecordingInterfaceProps) 
     }
   }, [state, cameraStreamRef.current]);
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (cameraStreamRef.current) {
+        cameraStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, []);
+
   return (
     <div className="relative w-full h-screen bg-gray-50 overflow-hidden flex flex-col items-center justify-center font-sans text-gray-900">
       {/* Background Photo Layer */}
       <div className="absolute inset-0 z-0">
         <img
-          src={memory.photoUrl}
+          src={photoUrl}
           alt="Memory"
           className="w-full h-full object-cover transition-all duration-500"
           style={{
-            opacity: state === 'reviewing' || state === 'uploading' ? 0.3 : 1,
-            filter: state === 'reviewing' || state === 'uploading' ? 'blur(12px)' : 'none',
+            opacity: state === 'reviewing' ? 0.3 : 1,
+            filter: state === 'reviewing' ? 'blur(12px)' : 'none',
             objectPosition: 'center center',
+          }}
+          onError={(e) => {
+            console.error('Photo failed to load:', photoUrl);
           }}
         />
       </div>
@@ -227,11 +187,19 @@ export default function RecordingInterface({ memory }: RecordingInterfaceProps) 
       {/* Top Navigation */}
       <div className="absolute top-0 left-0 right-0 p-6 z-30">
         <div className="flex justify-between items-start">
-          <div className="bg-white/95 backdrop-blur-md px-4 py-2 rounded-full border border-gray-200 shadow-lg">
-            <p className="text-xs font-bold tracking-widest text-gray-700 uppercase">Project Memory</p>
-            <h1 className="text-base font-bold text-gray-900">{memory.creatorPrompt}</h1>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={onBack}
+              className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center border border-gray-200 hover:bg-white transition shadow-md"
+            >
+              <ArrowLeft size={20} className="text-gray-900" />
+            </button>
+            <div className="bg-white/95 backdrop-blur-md px-4 py-2 rounded-full border border-gray-200 shadow-lg">
+              <p className="text-xs font-bold tracking-widest text-gray-700 uppercase">Project Memory</p>
+              <h1 className="text-base font-bold text-gray-900">Record Your Question</h1>
+            </div>
           </div>
-          {attemptCount > 0 && state !== 'uploading' && state !== 'complete' && (
+          {attemptCount > 0 && state !== 'reviewing' && (
             <div className="bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-sm text-gray-700 border border-gray-200">
               Attempt {attemptCount}/{MAX_ATTEMPTS}
             </div>
@@ -241,38 +209,15 @@ export default function RecordingInterface({ memory }: RecordingInterfaceProps) 
 
       {/* Error Message */}
       {errorMessage && (
-        <div className="absolute top-24 left-4 right-4 z-20 bg-red-500/90 backdrop-blur-md p-4 rounded-lg flex items-start gap-3">
+        <div className="absolute top-24 left-4 right-4 z-20 bg-red-500/90 backdrop-blur-md text-white p-4 rounded-lg flex items-start gap-3">
           <AlertCircle size={20} className="flex-shrink-0 mt-0.5" />
           <p className="text-sm">{errorMessage}</p>
         </div>
       )}
 
-      {/* Creator Video PiP (Initial state - bottom-right) */}
-      {state === 'initial' && (
-        <div className="absolute bottom-32 right-6 z-20 w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-2xl">
-          <video
-            ref={creatorVideoRef}
-            src={memory.creatorVideoUrl}
-            className="w-full h-full object-cover"
-            loop
-            playsInline
-            onPlay={() => setIsCreatorVideoPlaying(true)}
-            onPause={() => setIsCreatorVideoPlaying(false)}
-          />
-          {!isCreatorVideoPlaying && (
-            <button
-              onClick={toggleCreatorVideo}
-              className="absolute inset-0 flex items-center justify-center bg-black/30 hover:bg-black/40 transition"
-            >
-              <Play size={32} fill="white" className="drop-shadow-lg" />
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Friend Camera PiP (Ready/Recording states - top-right, small) */}
+      {/* Camera PiP (Ready/Recording states - top-right, small) */}
       {(state === 'ready' || state === 'recording') && (
-        <div className="absolute top-24 right-6 z-20 w-48 h-64 rounded-2xl overflow-hidden border-4 border-white shadow-2xl bg-black">
+        <div className="absolute top-24 right-6 z-20 w-48 h-64 rounded-2xl overflow-hidden border-4 border-white shadow-2xl bg-gray-900">
           <video
             ref={cameraVideoRef}
             autoPlay
@@ -297,7 +242,7 @@ export default function RecordingInterface({ memory }: RecordingInterfaceProps) 
         </div>
       )}
 
-      {/* Friend Video Review (Full screen - reviewing state) */}
+      {/* Video Review (Full screen - reviewing state) */}
       {state === 'reviewing' && recordedBlob && (
         <div className="absolute inset-x-0 top-0 bottom-24 z-40 flex items-center justify-center p-6 bg-black/90">
           <div className="relative w-full h-full max-w-5xl rounded-2xl overflow-hidden shadow-2xl">
@@ -313,25 +258,23 @@ export default function RecordingInterface({ memory }: RecordingInterfaceProps) 
         </div>
       )}
 
+      {/* Compact Instruction (Initial state) */}
+      {state === 'initial' && (
+        <div className="absolute bottom-24 left-6 z-20 bg-white/95 backdrop-blur-md border border-gray-200 px-3 py-1.5 rounded-full shadow-lg">
+          <p className="text-xs text-gray-700 font-medium">Ask your question in video</p>
+        </div>
+      )}
+
       {/* Bottom Controls */}
       <div className="absolute bottom-0 left-0 right-0 p-8 z-50 flex flex-col items-center">
-        {/* Initial State: Show prompt and reply button */}
+        {/* Initial State: Show record button */}
         {state === 'initial' && (
-          <div className="flex gap-4 items-center">
-            <button
-              onClick={toggleCreatorVideo}
-              className="w-14 h-14 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center border-2 border-gray-200 hover:bg-white transition shadow-lg"
-            >
-              {isCreatorVideoPlaying ? <Pause size={24} className="text-gray-900" /> : <Play size={24} fill="gray-900" className="text-gray-900" />}
-            </button>
-
-            <button
-              onClick={startRecording}
-              className="bg-[#FF6B6B] text-white px-8 py-4 rounded-full font-bold text-lg flex items-center gap-3 hover:bg-[#FF5252] transition-all shadow-lg hover:shadow-xl hover:scale-105"
-            >
-              <Mic size={20} /> Record Your Response
-            </button>
-          </div>
+          <button
+            onClick={startRecording}
+            className="bg-[#FF6B6B] text-white px-8 py-4 rounded-full font-bold text-lg flex items-center gap-3 hover:bg-[#FF5252] transition-all shadow-lg hover:shadow-xl hover:scale-105"
+          >
+            <Mic size={20} /> Start Recording
+          </button>
         )}
 
         {/* Ready State: Show record button */}
@@ -370,20 +313,11 @@ export default function RecordingInterface({ memory }: RecordingInterfaceProps) 
             </button>
 
             <button
-              onClick={submitResponse}
+              onClick={submitVideo}
               className="flex-1 bg-[#007BFF] text-white px-6 py-4 rounded-full font-bold text-lg flex items-center justify-center gap-2 shadow-xl hover:bg-[#0056b3] transition-all hover:scale-105"
             >
-              <Send size={20} /> Submit Memory
+              <Send size={20} /> Continue
             </button>
-          </div>
-        )}
-
-        {/* Uploading State: Show progress */}
-        {state === 'uploading' && (
-          <div className="bg-white/90 backdrop-blur-lg p-8 rounded-2xl text-center w-full max-w-md border border-gray-200">
-            <div className="w-16 h-16 border-4 border-gray-200 border-t-[#FF6B6B] rounded-full animate-spin mx-auto mb-4"></div>
-            <h3 className="text-xl font-bold mb-2 text-gray-900">Creating Memory...</h3>
-            <p className="text-sm text-gray-600">Uploading your video</p>
           </div>
         )}
       </div>

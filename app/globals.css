@@ -1,26 +1,202 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  /* Primary Colors */
+  --color-primary: #FF6B6B;
+  --color-primary-hover: #FF5252;
+  --color-secondary: #007BFF;
+  --color-secondary-hover: #0056b3;
+
+  /* Backgrounds */
+  --background: #FFFFFF;
+  --background-secondary: #F8F9FA;
+  --background-tertiary: #F5F5F5;
+
+  /* Text Colors */
   --foreground: #171717;
+  --foreground-secondary: rgba(0, 0, 0, 0.7);
+  --foreground-muted: rgba(0, 0, 0, 0.5);
+
+  /* Borders */
+  --border-subtle: rgba(0, 0, 0, 0.1);
+  --border-medium: #E0E0E0;
+
+  /* Shadows */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+  /* Border Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-smooth: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Accent Colors */
+  --color-success: #28A745;
+  --color-warning: #FFC107;
+  --color-error: #DC3545;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Custom Tailwind utilities */
+  --color-accent-red: #FF6B6B;
+  --color-accent-blue: #007BFF;
+  --color-success: #28A745;
+  --color-warning: #FFC107;
+  --color-error: #DC3545;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Global Button Styles */
+.btn-primary {
+  background: var(--color-primary);
+  color: white;
+  padding: 16px 32px;
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+  font-size: 18px;
+  box-shadow: var(--shadow-md);
+  transition: var(--transition-base);
+  border: none;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-hover);
+  transform: scale(1.02);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 2px solid var(--border-subtle);
+  color: var(--foreground);
+  padding: 16px 32px;
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+  font-size: 18px;
+  transition: var(--transition-base);
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: var(--border-medium);
+}
+
+.btn-secondary:active {
+  transform: scale(0.98);
+}
+
+/* Card Styles */
+.card {
+  background: var(--background);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition-base);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+/* Badge Styles */
+.badge {
+  background: rgba(255, 107, 107, 0.1);
+  color: var(--color-primary);
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Input Styles */
+input[type="text"],
+input[type="email"],
+textarea {
+  background: var(--background);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  font-size: 16px;
+  transition: var(--transition-base);
+  width: 100%;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.1);
+}
+
+/* Video Container Styles */
+.video-container {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: #000000;
+}
+
+/* Loading Spinner */
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid var(--border-subtle);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Fade In Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Utilities */
+.text-balance {
+  text-wrap: balance;
 }

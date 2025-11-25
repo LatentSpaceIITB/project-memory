@@ -34,6 +34,30 @@ export type RecordingState =
   | 'complete';    // Redirecting to split view
 
 /**
+ * Creator upload page state machine
+ */
+export type CreatorState =
+  | 'photo-upload'    // Upload photo step
+  | 'photo-preview'   // Preview photo and enter details
+  | 'video-preparing' // Requesting camera permission
+  | 'video-ready'     // Camera preview visible, ready to record
+  | 'video-recording' // Recording in progress
+  | 'video-reviewing' // Playing back creator's recording
+  | 'uploading'       // Uploading to Firebase
+  | 'success';        // Show shareable link
+
+/**
+ * Creator form data
+ */
+export interface CreatorFormData {
+  photoFile: File | null;
+  photoPreviewUrl: string | null;
+  creatorName: string;
+  creatorPrompt: string;
+  videoBlob: Blob | null;
+}
+
+/**
  * Firestore collection structure:
  *
  * /memories/{memoryId}
