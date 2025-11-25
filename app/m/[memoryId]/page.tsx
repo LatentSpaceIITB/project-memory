@@ -284,12 +284,22 @@ export default function MemorySplitView() {
             <p className="text-sm font-semibold text-gray-700">{memory.creatorName}'s Prompt</p>
           </div>
 
-          {/* Photo Container */}
-          <div className="flex-1 relative flex items-center justify-center p-6">
+          {/* Photo Container with Blurred Backdrop */}
+          <div className="flex-1 relative flex items-center justify-center p-6 overflow-hidden">
+            {/* Background Layer: Blurred backdrop to fill empty space */}
+            <div className="absolute inset-0">
+              <img
+                src={memory.photoUrl}
+                alt="Background"
+                className="w-full h-full object-cover blur-2xl scale-110 opacity-60"
+              />
+            </div>
+
+            {/* Foreground Layer: Actual photo with full visibility */}
             <img
               src={memory.photoUrl}
               alt="Memory"
-              className="max-w-full max-h-full object-contain"
+              className="relative max-w-full max-h-full object-contain z-10"
             />
 
             {/* Creator Video PiP (Bottom Right Corner) */}
