@@ -62,12 +62,15 @@ export function markThreadAsWatched(memoryId: string, threadId: string): void {
 
 /**
  * Format a date as relative time (e.g., "2 hours ago", "3d ago")
- * @param date - Date to format
+ * @param date - Date or Firestore Timestamp to format
  * @returns Formatted relative time string
  */
-export function formatRelativeTime(date: Date): string {
+export function formatRelativeTime(date: Date | any): string {
+  // Convert Firestore Timestamp to Date if needed
+  const dateObj = date instanceof Date ? date : (date?.toDate ? date.toDate() : new Date(date));
+
   const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
+  const diffMs = now.getTime() - dateObj.getTime();
   const diffMins = Math.floor(diffMs / 60000);
 
   if (diffMins < 1) return 'Just now';
@@ -79,7 +82,7 @@ export function formatRelativeTime(date: Date): string {
   const diffDays = Math.floor(diffHours / 24);
   if (diffDays < 7) return `${diffDays}d ago`;
 
-  return date.toLocaleDateString();
+  return dateObj.toLocaleDateString();
 }
 
 /**
