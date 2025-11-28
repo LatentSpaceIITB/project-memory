@@ -294,6 +294,7 @@ export default function MemorySplitView() {
 
   const handlePipTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     e.preventDefault();
+    e.stopPropagation();
 
     if (!photoContainerRef.current) return;
 
@@ -509,7 +510,8 @@ export default function MemorySplitView() {
                 left: `${pipPosition.x}px`,
                 top: `${pipPosition.y}px`,
                 cursor: isDraggingPip ? 'grabbing' : 'grab',
-                transition: isDraggingPip ? 'none' : 'left 200ms ease-out, top 200ms ease-out'
+                transition: isDraggingPip ? 'none' : 'left 200ms ease-out, top 200ms ease-out',
+                touchAction: 'none'
               }}
               onMouseDown={handlePipMouseDown}
               onTouchStart={handlePipTouchStart}
@@ -517,7 +519,7 @@ export default function MemorySplitView() {
               <video
                 ref={creatorVideoRef}
                 src={memory.creatorVideoUrl}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover pointer-events-none"
                 loop
                 playsInline
                 controls
