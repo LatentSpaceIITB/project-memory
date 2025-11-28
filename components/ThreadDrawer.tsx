@@ -1,31 +1,34 @@
 'use client';
 
 import { Play, MessageSquare } from 'lucide-react';
-import { MemoryThread, MAX_THREADS } from '@/types/memory';
-import ThreadBubble from './ThreadBubble';
+import { PlaylistItem, MAX_THREADS } from '@/types/memory';
 import { formatRelativeTime } from '@/lib/threadUtils';
 
 interface ThreadDrawerProps {
   memoryId: string;
-  threads: MemoryThread[];
+  playlist: PlaylistItem[];
+  activeItemId: string | null;
+  thumbnails: Record<string, string>;
   isOpen: boolean;
   onClose: () => void;
-  onThreadClick: (thread: MemoryThread) => void;
+  onItemClick: (item: PlaylistItem, index: number) => void;
   onAddThread: () => void;
-  watchedThreadIds: string[];
+  threadCount: number; // Current number of threads (for MAX_THREADS check)
 }
 
 export default function ThreadDrawer({
   memoryId,
-  threads,
+  playlist,
+  activeItemId,
+  thumbnails,
   isOpen,
   onClose,
-  onThreadClick,
+  onItemClick,
   onAddThread,
-  watchedThreadIds,
+  threadCount,
 }: ThreadDrawerProps) {
-  const hasThreads = threads.length > 0;
-  const canAddMore = threads.length < MAX_THREADS;
+  const hasItems = playlist.length > 0;
+  const canAddMore = threadCount < MAX_THREADS;
 
   return (
     <>
@@ -55,10 +58,10 @@ export default function ThreadDrawer({
 
         {/* Header */}
         <div className="flex-shrink-0 px-4 pb-3 border-b border-gray-200">
-          <h3 className="font-bold text-gray-900 text-lg">More Stories</h3>
-          {hasThreads && (
+          <h3 className="font-bold text-gray-900 text-lg">Playlist</h3>
+          {hasItems && (
             <p className="text-sm text-gray-500 mt-0.5">
-              {threads.length} {threads.length === 1 ? 'story' : 'stories'} added
+              {playlist.length} {playlist.length === 1 ? 'video' : 'videos'}
             </p>
           )}
         </div>
@@ -76,38 +79,74 @@ export default function ThreadDrawer({
           </div>
         )}
 
-        {/* Thread List or Empty State */}
+        {/* Playlist or Empty State */}
         <div
           className="flex-1 overflow-y-auto px-4 pb-safe"
           style={{ maxHeight: 'calc(70vh - 180px)' }}
         >
-          {hasThreads ? (
+          {hasItems ? (
             <div className="space-y-2 pb-4">
-              {threads.map((thread) => (
-                <button
-                  key={thread.id}
-                  onClick={() => onThreadClick(thread)}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg
-                           hover:bg-gray-50 active:bg-gray-100 transition-colors"
-                >
-                  <ThreadBubble
-                    thread={thread}
-                    isWatched={watchedThreadIds.includes(thread.id)}
-                    size="medium"
-                    onClick={() => {}} // Click handled by parent button
-                    asButton={false}
-                  />
-                  <div className="flex-1 text-left min-w-0">
-                    <p className="font-semibold text-gray-900">
-                      {thread.userId}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {formatRelativeTime(thread.createdAt)}
-                    </p>
-                  </div>
-                  <Play size={20} className="text-gray-400 flex-shrink-0" />
-                </button>
-              ))}
+              {playlist.map((item, index) => {
+                const isActive = item.id === activeItemId;
+                const thumbnail = thumbnails[item.id];
+
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      onItemClick(item, index);
+                      // Auto-close drawer after selection (mobile behavior)
+                      onClose();
+                    }}
+                    className={`
+                      w-full flex items-center gap-3 p-3 rounded-lg
+                      transition-all
+                      ${isActive
+                        ? 'bg-[#FFF5F5] ring-2 ring-[#FF6B6B] shadow-sm'
+                        : 'hover:bg-gray-50 active:bg-gray-100'
+                      }
+                    `}
+                  >
+                    {/* Thumbnail */}
+                    <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
+                      {thumbnail ? (
+                        <img
+                          src={thumbnail}
+                          alt={item.label}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                          <Play size={20} className="text-gray-400" />
+                        </div>
+                      )}
+
+                      {/* Unwatch indicator for threads */}
+                      {item.type === 'thread' && !item.isWatched && (
+                        <div className="absolute top-1 right-1 w-2 h-2 bg-[#FF6B6B] rounded-full border border-white" />
+                      )}
+                    </div>
+
+                    {/* Text Info */}
+                    <div className="flex-1 text-left min-w-0">
+                      <p className={`font-semibold ${isActive ? 'text-[#FF6B6B]' : 'text-gray-900'}`}>
+                        {item.label}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {formatRelativeTime(item.createdAt)}
+                      </p>
+                    </div>
+
+                    {/* Play icon */}
+                    <Play
+                      size={20}
+                      className={`flex-shrink-0 ${
+                        isActive ? 'text-[#FF6B6B]' : 'text-gray-400'
+                      }`}
+                    />
+                  </button>
+                );
+              })}
             </div>
           ) : (
             // Empty State
@@ -115,7 +154,7 @@ export default function ThreadDrawer({
               <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
                 <MessageSquare size={32} className="text-gray-400" />
               </div>
-              <h4 className="font-semibold text-gray-900 mb-2">No stories yet</h4>
+              <h4 className="font-semibold text-gray-900 mb-2">No videos yet</h4>
               <p className="text-sm text-gray-600">
                 Be the first to add yours!
               </p>
@@ -124,7 +163,7 @@ export default function ThreadDrawer({
         </div>
 
         {/* Footer - Max threads message */}
-        {threads.length >= MAX_THREADS && (
+        {threadCount >= MAX_THREADS && (
           <div className="flex-shrink-0 p-4 border-t border-gray-200 text-center bg-gray-50">
             <p className="text-xs text-gray-500 font-medium">
               Maximum stories reached ({MAX_THREADS}/{MAX_THREADS})

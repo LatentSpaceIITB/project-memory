@@ -10,6 +10,38 @@ export interface MemoryThread {
 }
 
 /**
+ * Playlist item representing any playable video (friend or thread)
+ * Used for unified video navigation system
+ */
+export interface PlaylistItem {
+  id: string;              // "friend" for friend video, or thread ID
+  type: 'friend' | 'thread';
+  videoUrl: string;
+  thumbnailUrl?: string;   // Canvas-extracted or cached
+  label: string;           // "Main Story" for friend, or userId for threads
+  createdAt: Date;
+
+  // Thread-specific fields (undefined for friend)
+  userId?: string;
+  userColor?: string;
+  isWatched?: boolean;
+}
+
+/**
+ * Active video type for tracking which video is currently playing
+ */
+export type ActiveVideoType = 'friend' | 'creator' | 'thread';
+
+/**
+ * State object for tracking the currently active/playing video
+ */
+export interface ActiveVideoState {
+  type: ActiveVideoType;
+  threadId?: string;       // Only set if type === 'thread'
+  playlistIndex?: number;  // Position in playlist array
+}
+
+/**
  * Represents a single memory (photo + 2 videos)
  */
 export interface Memory {

@@ -196,6 +196,74 @@ textarea:focus {
   animation: fadeIn 0.3s ease-out;
 }
 
+/* Video Crossfade Animation */
+@keyframes crossfade {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.video-crossfade {
+  animation: crossfade 0.3s ease-in-out;
+}
+
+/* Playlist Item Stagger Animation */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.playlist-item-stagger {
+  animation: slideIn 0.2s ease-out backwards;
+}
+
+.playlist-item-stagger:nth-child(1) { animation-delay: 0ms; }
+.playlist-item-stagger:nth-child(2) { animation-delay: 40ms; }
+.playlist-item-stagger:nth-child(3) { animation-delay: 80ms; }
+.playlist-item-stagger:nth-child(4) { animation-delay: 120ms; }
+.playlist-item-stagger:nth-child(5) { animation-delay: 160ms; }
+.playlist-item-stagger:nth-child(6) { animation-delay: 200ms; }
+
+/* Active Item Pulse Animation */
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(255, 107, 107, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 107, 107, 0);
+  }
+}
+
+.active-item-pulse {
+  animation: pulse-ring 2s ease-out infinite;
+}
+
+/* Scale Growth Animation (for collapsed rail active items) */
+@keyframes scaleGrow {
+  from {
+    transform: scale(0.8);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+.scale-grow-animation {
+  animation: scaleGrow 0.3s ease-out;
+}
+
 /* Utilities */
 .text-balance {
   text-wrap: balance;

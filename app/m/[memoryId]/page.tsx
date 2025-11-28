@@ -4,12 +4,18 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Memory, MemoryThread, MAX_THREADS } from '@/types/memory';
-import { Share2, Copy, Check, MessageSquare } from 'lucide-react';
-import { getWatchedThreads, markThreadAsWatched } from '@/lib/threadUtils';
+import { Memory, MemoryThread, MAX_THREADS, PlaylistItem, ActiveVideoState } from '@/types/memory';
+import { Share2, Copy, Check, MessageSquare, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  getWatchedThreads,
+  markThreadAsWatched,
+  createPlaylist,
+  getNextItem,
+  getPrevItem,
+  extractVideoThumbnail
+} from '@/lib/threadUtils';
 import ThreadRail from '@/components/ThreadRail';
 import ThreadDrawer from '@/components/ThreadDrawer';
-import ThreadModal from '@/components/ThreadModal';
 import ThreadRecordingInterface from '@/components/ThreadRecordingInterface';
 
 export default function MemorySplitView() {
@@ -35,9 +41,16 @@ export default function MemorySplitView() {
   const [watchedThreadIds, setWatchedThreadIds] = useState<string[]>([]);
   const [isThreadRailExpanded, setIsThreadRailExpanded] = useState(false);
   const [isThreadDrawerOpen, setIsThreadDrawerOpen] = useState(false);
-  const [selectedThread, setSelectedThread] = useState<MemoryThread | null>(null);
-  const [isThreadModalOpen, setIsThreadModalOpen] = useState(false);
   const [isRecordingThread, setIsRecordingThread] = useState(false);
+
+  // Playlist state (replaces ThreadModal)
+  const [playlist, setPlaylist] = useState<PlaylistItem[]>([]);
+  const [activeVideoState, setActiveVideoState] = useState<ActiveVideoState>({
+    type: 'friend',
+    playlistIndex: 0,
+  });
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [videoThumbnails, setVideoThumbnails] = useState<Record<string, string>>({});
 
   const creatorVideoRef = useRef<HTMLVideoElement>(null);
   const friendVideoRef = useRef<HTMLVideoElement>(null);
@@ -105,6 +118,22 @@ export default function MemorySplitView() {
       setWatchedThreadIds(getWatchedThreads(memoryId));
     }
   }, [memory, memoryId]);
+
+  // Initialize playlist when memory or threads change
+  useEffect(() => {
+    if (memory) {
+      const newPlaylist = createPlaylist(memory, watchedThreadIds);
+      setPlaylist(newPlaylist);
+
+      // Extract thumbnails in background (async)
+      newPlaylist.forEach(async (item) => {
+        const thumb = await extractVideoThumbnail(item.videoUrl, item.id);
+        if (thumb) {
+          setVideoThumbnails(prev => ({ ...prev, [item.id]: thumb }));
+        }
+      });
+    }
+  }, [memory, threads, watchedThreadIds]);
 
   // Real-time updates for threads
   useEffect(() => {
@@ -212,10 +241,53 @@ export default function MemorySplitView() {
     }
   };
 
-  // Thread handlers
-  const handleThreadClick = (thread: MemoryThread) => {
-    setSelectedThread(thread);
-    setIsThreadModalOpen(true);
+  // Video switching handler (replaces handleThreadClick)
+  const switchToVideo = (item: PlaylistItem, index: number) => {
+    if (activeVideoState.playlistIndex === index) return; // Already playing
+
+    setIsTransitioning(true);
+
+    // Pause all other videos
+    if (creatorVideoRef.current && !creatorVideoRef.current.paused) {
+      creatorVideoRef.current.pause();
+      setIsCreatorPlaying(false);
+    }
+
+    if (friendVideoRef.current) {
+      friendVideoRef.current.pause();
+      setIsPlaying(false);
+    }
+
+    // Update active state
+    setActiveVideoState({
+      type: item.type === 'friend' ? 'friend' : 'thread',
+      threadId: item.type === 'thread' ? item.id : undefined,
+      playlistIndex: index,
+    });
+
+    // Switch video source with crossfade
+    setTimeout(() => {
+      if (friendVideoRef.current) {
+        friendVideoRef.current.src = item.videoUrl;
+        friendVideoRef.current.load();
+        friendVideoRef.current.play()
+          .then(() => {
+            setIsTransitioning(false);
+          })
+          .catch(err => {
+            console.error('Video play failed:', err);
+            setIsTransitioning(false);
+          });
+      } else {
+        setIsTransitioning(false);
+      }
+    }, 150); // Half of crossfade duration
+
+    // Mark as watched if it's a thread
+    if (item.type === 'thread') {
+      markThreadAsWatched(memoryId, item.id);
+      setWatchedThreadIds(prev => [...new Set([...prev, item.id])]);
+    }
   };
 
   const handleAddThread = () => {
@@ -231,12 +303,33 @@ export default function MemorySplitView() {
     setIsRecordingThread(false);
   };
 
-  const handleVideoWatched = () => {
-    if (selectedThread) {
-      markThreadAsWatched(memoryId, selectedThread.id);
-      setWatchedThreadIds([...watchedThreadIds, selectedThread.id]);
+  // Navigation controls
+  const goToNext = () => {
+    const next = getNextItem(playlist, activeVideoState.playlistIndex || 0);
+    if (next) {
+      const nextIndex = playlist.findIndex(p => p.id === next.id);
+      switchToVideo(next, nextIndex);
     }
   };
+
+  const goToPrev = () => {
+    const prev = getPrevItem(playlist, activeVideoState.playlistIndex || 0);
+    if (prev) {
+      const prevIndex = playlist.findIndex(p => p.id === prev.id);
+      switchToVideo(prev, prevIndex);
+    }
+  };
+
+  // Keyboard navigation support
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') goToNext();
+      if (e.key === 'ArrowLeft') goToPrev();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [playlist, activeVideoState]);
 
   // Toggle creator video play/pause
   const toggleCreatorVideo = () => {
@@ -586,18 +679,28 @@ export default function MemorySplitView() {
           </div>
         </div>
 
-        {/* Right Side (Desktop) / Bottom (Mobile): Friend Response */}
+        {/* Right Side (Desktop) / Bottom (Mobile): Friend/Thread Video Player */}
         <div className="flex-1 flex flex-col bg-gray-50 overflow-hidden md:border-l border-gray-200">
-          {/* Video Container */}
+          {/* Video Container with Playlist Support */}
           <div className="relative flex items-center justify-center p-3 sm:p-4 md:flex-1 md:p-6 bg-gray-100 min-h-[300px] md:min-h-0">
+            {/* Crossfade overlay during transitions */}
+            {isTransitioning && (
+              <div className="absolute inset-0 bg-gray-100 z-10 flex items-center justify-center">
+                <div className="w-12 h-12 border-4 border-gray-200 border-t-[#FF6B6B] rounded-full animate-spin" />
+              </div>
+            )}
+
+            {/* Video Player */}
             <video
               ref={friendVideoRef}
-              src={memory.friendVideoUrl}
-              className="max-w-full max-h-full object-contain shadow-xl rounded-lg"
+              src={playlist[activeVideoState.playlistIndex || 0]?.videoUrl || memory.friendVideoUrl}
+              className={`max-w-full max-h-full object-contain shadow-xl rounded-lg transition-opacity duration-300 ${
+                isTransitioning ? 'opacity-0' : 'opacity-100'
+              }`}
               controls
               playsInline
               onPlay={() => {
-                // Pause creator video when friend video plays
+                // Pause creator video when friend/thread video plays
                 if (creatorVideoRef.current && !creatorVideoRef.current.paused) {
                   creatorVideoRef.current.pause();
                   setIsCreatorPlaying(false);
@@ -606,19 +709,50 @@ export default function MemorySplitView() {
               }}
               onPause={() => setIsPlaying(false)}
             />
+
+            {/* Mobile Navigation Controls (only show if multiple videos) */}
+            {playlist.length > 1 && (
+              <div className="md:hidden absolute bottom-4 left-0 right-0 flex justify-center gap-4 z-20">
+                <button
+                  onClick={goToPrev}
+                  className="bg-white/90 backdrop-blur-sm rounded-full p-3 shadow-lg hover:bg-white transition-colors"
+                  aria-label="Previous video"
+                >
+                  <ChevronLeft size={24} />
+                </button>
+                <button
+                  onClick={goToNext}
+                  className="bg-white/90 backdrop-blur-sm rounded-full p-3 shadow-lg hover:bg-white transition-colors"
+                  aria-label="Next video"
+                >
+                  <ChevronRight size={24} />
+                </button>
+              </div>
+            )}
+
+            {/* Video Info Overlay */}
+            {playlist.length > 0 && (
+              <div className="absolute top-4 left-4 z-20 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-md">
+                <p className="text-sm font-semibold text-gray-900">
+                  {playlist[activeVideoState.playlistIndex || 0]?.label || 'Main Story'}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Desktop Thread Rail */}
-        {memory.status === 'completed' && (threads.length > 0 || threads.length < MAX_THREADS) && (
+        {memory.status === 'completed' && (playlist.length > 0 || threads.length < MAX_THREADS) && (
           <ThreadRail
             memoryId={memoryId}
-            threads={threads}
+            playlist={playlist}
+            activeItemId={playlist[activeVideoState.playlistIndex || 0]?.id || null}
+            thumbnails={videoThumbnails}
             isExpanded={isThreadRailExpanded}
             onToggle={() => setIsThreadRailExpanded(!isThreadRailExpanded)}
-            onThreadClick={handleThreadClick}
+            onItemClick={(item, index) => switchToVideo(item, index)}
             onAddThread={handleAddThread}
-            watchedThreadIds={watchedThreadIds}
+            threadCount={threads.length}
             className="hidden md:block"
           />
         )}
@@ -661,30 +795,17 @@ export default function MemorySplitView() {
       {/* Mobile Drawer */}
       <ThreadDrawer
         memoryId={memoryId}
-        threads={threads}
+        playlist={playlist}
+        activeItemId={playlist[activeVideoState.playlistIndex || 0]?.id || null}
+        thumbnails={videoThumbnails}
         isOpen={isThreadDrawerOpen}
         onClose={() => setIsThreadDrawerOpen(false)}
-        onThreadClick={(thread) => {
-          handleThreadClick(thread);
-          setIsThreadDrawerOpen(false);
-        }}
-        onAddThread={() => {
-          handleAddThread();
-          setIsThreadDrawerOpen(false);
-        }}
-        watchedThreadIds={watchedThreadIds}
+        onItemClick={(item, index) => switchToVideo(item, index)}
+        onAddThread={handleAddThread}
+        threadCount={threads.length}
       />
 
-      {/* Thread Video Modal */}
-      <ThreadModal
-        thread={selectedThread}
-        isOpen={isThreadModalOpen}
-        onClose={() => {
-          setIsThreadModalOpen(false);
-          setSelectedThread(null);
-        }}
-        onVideoEnd={handleVideoWatched}
-      />
+      {/* ThreadModal removed - videos now play in main player */}
 
       {/* Thread Recording Interface */}
       {isRecordingThread && (
