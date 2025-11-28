@@ -198,9 +198,10 @@ export async function extractVideoThumbnail(
 
   return new Promise((resolve) => {
     const video = document.createElement('video');
-    video.crossOrigin = 'anonymous';
+    // Note: crossOrigin removed - Firebase Storage doesn't require it for same-origin access
     video.src = videoUrl;
     video.muted = true; // Muted to avoid audio issues
+    video.playsInline = true; // Prevent fullscreen on iOS
 
     video.addEventListener('loadeddata', () => {
       // Seek to 0.1s to get past any initial black frames
@@ -238,8 +239,14 @@ export async function extractVideoThumbnail(
       }
     });
 
-    video.addEventListener('error', (err) => {
-      console.error('Video load error for thumbnail:', err);
+    video.addEventListener('error', (e) => {
+      const errorDetails = {
+        url: videoUrl,
+        error: video.error,
+        networkState: video.networkState,
+        readyState: video.readyState,
+      };
+      console.warn('Failed to load video for thumbnail extraction:', errorDetails);
       resolve(null);
     });
 
