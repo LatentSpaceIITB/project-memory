@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Memory } from '@/types/memory';
-import { Share2, Download, ChevronDown, Play } from 'lucide-react';
+import { Share2, Download, ChevronDown } from 'lucide-react';
 
 export default function MemorySplitView() {
   const params = useParams();
@@ -604,15 +604,6 @@ export default function MemorySplitView() {
                 onEnded={() => setIsCreatorPlaying(false)}
                 onTimeUpdate={() => handleTimeUpdate('creator')}
               />
-
-              {/* Play icon overlay when paused */}
-              {!isCreatorPlaying && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full bg-white/90 flex items-center justify-center shadow-xl">
-                    <Play size={20} fill="black" className="text-black ml-0.5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8" />
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Sync Badge */}
