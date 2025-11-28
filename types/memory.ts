@@ -1,4 +1,15 @@
 /**
+ * Represents a thread (audience member's video response)
+ */
+export interface MemoryThread {
+  id: string;              // Unique thread ID (nanoid)
+  userId: string;          // Auto-generated user ID ("U1", "U2", etc.)
+  userColor: string;       // Hex color from THREAD_COLORS palette
+  videoUrl: string;        // Firebase Storage URL
+  createdAt: Date;
+}
+
+/**
  * Represents a single memory (photo + 2 videos)
  */
 export interface Memory {
@@ -19,6 +30,10 @@ export interface Memory {
 
   // Metadata
   status: 'pending' | 'completed'; // pending = waiting for friend, completed = friend has responded
+
+  // Memory Threads (additional video responses from audience)
+  threads?: MemoryThread[];
+  threadCount?: number; // Denormalized count for quick validation
 }
 
 /**
@@ -58,6 +73,22 @@ export interface CreatorFormData {
 }
 
 /**
+ * Color palette for thread user avatars (assigned in order)
+ */
+export const THREAD_COLORS = [
+  '#FF6B6B', // Red
+  '#4ECDC4', // Teal
+  '#FFD93D', // Yellow
+  '#6BCF7F', // Green
+  '#A78BFA', // Purple
+] as const;
+
+/**
+ * Maximum number of threads allowed per memory
+ */
+export const MAX_THREADS = 5;
+
+/**
  * Firestore collection structure:
  *
  * /memories/{memoryId}
@@ -72,11 +103,14 @@ export interface CreatorFormData {
  *   - friendVideoUrl: string | null
  *   - friendSubmittedAt: timestamp | null
  *   - status: 'pending' | 'completed'
+ *   - threads: array | null (MemoryThread[], max 5)
+ *   - threadCount: number | null (0-5)
  *
  * Firebase Storage structure:
  *
  * /memories/{memoryId}/
  *   - photo.jpg (or .png)
- *   - creator-video.mp4 (or .webm)
- *   - friend-video.mp4 (or .webm)
+ *   - creator-video.webm (or .mp4)
+ *   - friend-video.webm (or .mp4)
+ *   - thread-{threadId}-{timestamp}.webm
  */

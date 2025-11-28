@@ -14,6 +14,12 @@ service cloud.firestore {
       allow update: if request.resource.data.diff(resource.data).affectedKeys()
         .hasOnly(['friendVideoUrl', 'friendSubmittedAt', 'status', 'friendName']);
 
+      // Allow anyone to add threads (with validation)
+      allow update: if request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['threads', 'threadCount'])
+        && request.resource.data.threads.size() <= 5
+        && request.resource.data.threadCount <= 5;
+
       // Allow creators to create new memories (you'll add auth later)
       allow create: if true;
 

@@ -10,7 +10,8 @@ service firebase.storage {
       // Allow anyone to read files (needed for viewing videos/photos)
       allow read: if true;
 
-      // Allow anyone to write files (needed for friend video uploads)
+      // Allow anyone to write files (friend videos and thread videos)
+      // Thread videos use pattern: thread-{threadId}-{timestamp}.webm
       allow write: if true;
     }
 

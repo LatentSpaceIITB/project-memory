@@ -2,10 +2,15 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Memory } from '@/types/memory';
-import { Share2, Copy, Check } from 'lucide-react';
+import { Memory, MemoryThread, MAX_THREADS } from '@/types/memory';
+import { Share2, Copy, Check, MessageSquare } from 'lucide-react';
+import { getWatchedThreads, markThreadAsWatched } from '@/lib/threadUtils';
+import ThreadRail from '@/components/ThreadRail';
+import ThreadDrawer from '@/components/ThreadDrawer';
+import ThreadModal from '@/components/ThreadModal';
+import ThreadRecordingInterface from '@/components/ThreadRecordingInterface';
 
 export default function MemorySplitView() {
   const params = useParams();
@@ -24,6 +29,15 @@ export default function MemorySplitView() {
   const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
   // Creator video playback state
   const [isCreatorPlaying, setIsCreatorPlaying] = useState(false);
+
+  // Thread state management
+  const [threads, setThreads] = useState<MemoryThread[]>([]);
+  const [watchedThreadIds, setWatchedThreadIds] = useState<string[]>([]);
+  const [isThreadRailExpanded, setIsThreadRailExpanded] = useState(false);
+  const [isThreadDrawerOpen, setIsThreadDrawerOpen] = useState(false);
+  const [selectedThread, setSelectedThread] = useState<MemoryThread | null>(null);
+  const [isThreadModalOpen, setIsThreadModalOpen] = useState(false);
+  const [isRecordingThread, setIsRecordingThread] = useState(false);
 
   const creatorVideoRef = useRef<HTMLVideoElement>(null);
   const friendVideoRef = useRef<HTMLVideoElement>(null);
@@ -83,6 +97,34 @@ export default function MemorySplitView() {
       return () => clearTimeout(timer);
     }
   }, [memory, hasAutoPlayed]);
+
+  // Load threads and watch state when memory loads
+  useEffect(() => {
+    if (memory) {
+      setThreads(memory.threads || []);
+      setWatchedThreadIds(getWatchedThreads(memoryId));
+    }
+  }, [memory, memoryId]);
+
+  // Real-time updates for threads
+  useEffect(() => {
+    if (!memoryId) return;
+
+    const memoryRef = doc(db, 'memories', memoryId);
+    const unsubscribe = onSnapshot(memoryRef, (snapshot) => {
+      const data = snapshot.data();
+      if (data?.threads) {
+        setThreads(
+          data.threads.map((t: any) => ({
+            ...t,
+            createdAt: t.createdAt?.toDate() || new Date(),
+          }))
+        );
+      }
+    });
+
+    return () => unsubscribe();
+  }, [memoryId]);
 
   // Initialize PIP position to bottom-right on mount
   useEffect(() => {
@@ -170,6 +212,32 @@ export default function MemorySplitView() {
     }
   };
 
+  // Thread handlers
+  const handleThreadClick = (thread: MemoryThread) => {
+    setSelectedThread(thread);
+    setIsThreadModalOpen(true);
+  };
+
+  const handleAddThread = () => {
+    if (threads.length >= MAX_THREADS) {
+      alert(`Maximum of ${MAX_THREADS} threads reached.`);
+      return;
+    }
+    setIsRecordingThread(true);
+  };
+
+  const handleThreadComplete = (newThread: MemoryThread) => {
+    setThreads([...threads, newThread]);
+    setIsRecordingThread(false);
+  };
+
+  const handleVideoWatched = () => {
+    if (selectedThread) {
+      markThreadAsWatched(memoryId, selectedThread.id);
+      setWatchedThreadIds([...watchedThreadIds, selectedThread.id]);
+    }
+  };
+
   // Toggle creator video play/pause
   const toggleCreatorVideo = () => {
     if (creatorVideoRef.current) {
@@ -182,8 +250,20 @@ export default function MemorySplitView() {
           friendVideoRef.current.pause();
           setIsPlaying(false);
         }
-        creatorVideoRef.current.play();
-        setIsCreatorPlaying(true);
+        // Handle promise from play() for better mobile support
+        const playPromise = creatorVideoRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              setIsCreatorPlaying(true);
+            })
+            .catch((err) => {
+              console.error('Creator video play error:', err);
+              // Video play was prevented, user may need to interact first
+            });
+        } else {
+          setIsCreatorPlaying(true);
+        }
       }
     }
   };
@@ -271,7 +351,8 @@ export default function MemorySplitView() {
   };
 
   const handlePipTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    e.preventDefault();
+    // Don't prevent default immediately - let video handle taps
+    // Only prevent scrolling, not all touch events
     e.stopPropagation();
 
     if (!photoContainerRef.current) return;
@@ -487,7 +568,7 @@ export default function MemorySplitView() {
                 top: `${pipPosition.y}px`,
                 cursor: isDraggingPip ? 'grabbing' : 'grab',
                 transition: isDraggingPip ? 'none' : 'left 200ms ease-out, top 200ms ease-out',
-                touchAction: 'none'
+                touchAction: 'manipulation' // Allow taps for video playback
               }}
               onMouseDown={handlePipMouseDown}
               onTouchStart={handlePipTouchStart}
@@ -527,6 +608,40 @@ export default function MemorySplitView() {
             />
           </div>
         </div>
+
+        {/* Desktop Thread Rail */}
+        {memory.status === 'completed' && (threads.length > 0 || threads.length < MAX_THREADS) && (
+          <ThreadRail
+            memoryId={memoryId}
+            threads={threads}
+            isExpanded={isThreadRailExpanded}
+            onToggle={() => setIsThreadRailExpanded(!isThreadRailExpanded)}
+            onThreadClick={handleThreadClick}
+            onAddThread={handleAddThread}
+            watchedThreadIds={watchedThreadIds}
+            className="hidden md:block"
+          />
+        )}
+
+        {/* Mobile Drawer Trigger Button */}
+        {memory.status === 'completed' && (threads.length > 0 || threads.length < MAX_THREADS) && (
+          <div className="md:hidden fixed bottom-6 right-6 z-30">
+            <button
+              onClick={() => setIsThreadDrawerOpen(true)}
+              className="bg-[#FF6B6B] text-white rounded-full p-4 shadow-2xl hover:bg-[#FF5252] transition-all relative"
+              aria-label="View more stories"
+            >
+              <MessageSquare size={24} />
+              {threads.length > 0 && (
+                <span className="absolute -top-2 -right-2 bg-white text-[#FF6B6B]
+                               rounded-full w-6 h-6 flex items-center justify-center
+                               text-xs font-bold shadow-md">
+                  {threads.length}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
       </main>
 
       {/* Footer Info */}
@@ -542,6 +657,44 @@ export default function MemorySplitView() {
           </p>
         </div>
       </footer>
+
+      {/* Mobile Drawer */}
+      <ThreadDrawer
+        memoryId={memoryId}
+        threads={threads}
+        isOpen={isThreadDrawerOpen}
+        onClose={() => setIsThreadDrawerOpen(false)}
+        onThreadClick={(thread) => {
+          handleThreadClick(thread);
+          setIsThreadDrawerOpen(false);
+        }}
+        onAddThread={() => {
+          handleAddThread();
+          setIsThreadDrawerOpen(false);
+        }}
+        watchedThreadIds={watchedThreadIds}
+      />
+
+      {/* Thread Video Modal */}
+      <ThreadModal
+        thread={selectedThread}
+        isOpen={isThreadModalOpen}
+        onClose={() => {
+          setIsThreadModalOpen(false);
+          setSelectedThread(null);
+        }}
+        onVideoEnd={handleVideoWatched}
+      />
+
+      {/* Thread Recording Interface */}
+      {isRecordingThread && (
+        <ThreadRecordingInterface
+          memoryId={memoryId}
+          memory={memory}
+          onComplete={handleThreadComplete}
+          onCancel={() => setIsRecordingThread(false)}
+        />
+      )}
     </div>
   );
 }
