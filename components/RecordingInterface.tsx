@@ -212,14 +212,27 @@ export default function RecordingInterface({ memory }: RecordingInterfaceProps) 
     <div className="relative w-full h-screen bg-gray-50 overflow-hidden flex flex-col items-center justify-center font-sans text-gray-900">
       {/* Background Photo Layer */}
       <div className="absolute inset-0 z-0">
+        {/* Background Layer: Blurred backdrop to fill empty space */}
+        <div className="absolute inset-0">
+          <img
+            src={memory.photoUrl}
+            alt="Background"
+            className="w-full h-full object-cover blur-2xl scale-110 transition-all duration-500"
+            style={{
+              opacity: state === 'reviewing' || state === 'uploading' ? 0.2 : 0.6,
+              filter: state === 'reviewing' || state === 'uploading' ? 'blur(16px)' : 'blur(24px)',
+            }}
+          />
+        </div>
+
+        {/* Foreground Layer: Actual photo with proper aspect ratio */}
         <img
           src={memory.photoUrl}
           alt="Memory"
-          className="w-full h-full object-cover transition-all duration-500"
+          className="relative w-full h-full object-contain z-10 transition-all duration-500"
           style={{
             opacity: state === 'reviewing' || state === 'uploading' ? 0.3 : 1,
             filter: state === 'reviewing' || state === 'uploading' ? 'blur(12px)' : 'none',
-            objectPosition: 'center center',
           }}
         />
       </div>

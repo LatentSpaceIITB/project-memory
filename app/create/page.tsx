@@ -104,10 +104,20 @@ export default function CreateMemoryPage() {
         {/* Background Photo Preview */}
         {photoPreviewUrl && (
           <div className="fixed inset-0 z-0">
+            {/* Background Layer: Blurred backdrop to fill empty space */}
+            <div className="absolute inset-0">
+              <img
+                src={photoPreviewUrl}
+                alt="Background"
+                className="w-full h-full object-cover blur-2xl scale-110 opacity-20"
+              />
+            </div>
+
+            {/* Foreground Layer: Actual photo with proper aspect ratio */}
             <img
               src={photoPreviewUrl}
               alt="Selected photo"
-              className="w-full h-full object-cover opacity-20 blur-sm"
+              className="relative w-full h-full object-contain opacity-20 blur-sm"
             />
           </div>
         )}
