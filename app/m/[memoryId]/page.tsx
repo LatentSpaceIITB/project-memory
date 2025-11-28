@@ -655,7 +655,7 @@ export default function MemorySplitView() {
 
             {/* Creator Video PiP (Draggable) */}
             <div
-              className="absolute w-20 h-20 sm:w-28 sm:h-28 md:w-36 md:h-36 lg:w-44 lg:h-44 rounded-full overflow-hidden border-4 border-white shadow-2xl bg-black z-20"
+              className="absolute w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-44 lg:h-44 rounded-full overflow-hidden border-4 border-white shadow-2xl bg-black z-20"
               style={{
                 left: `${pipPosition.x}px`,
                 top: `${pipPosition.y}px`,
