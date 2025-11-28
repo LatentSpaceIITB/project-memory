@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Memory } from '@/types/memory';
-import { Share2, Download } from 'lucide-react';
+import { Share2, Download, ChevronDown } from 'lucide-react';
 
 export default function MemorySplitView() {
   const params = useParams();
@@ -18,6 +18,8 @@ export default function MemorySplitView() {
   const [isSynced, setIsSynced] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [showCreatorHeader, setShowCreatorHeader] = useState(false);
+  const [showFriendHeader, setShowFriendHeader] = useState(false);
 
   const creatorVideoRef = useRef<HTMLVideoElement>(null);
   const friendVideoRef = useRef<HTMLVideoElement>(null);
@@ -203,7 +205,7 @@ export default function MemorySplitView() {
     <div className="h-screen overflow-hidden bg-white text-gray-900 flex flex-col">
       {/* Header */}
       <header className="flex-shrink-0 bg-white border-b border-gray-200 shadow-sm">
-        <div className="px-6 py-4 flex items-center justify-between">
+        <div className="px-4 py-3 md:px-6 md:py-4 flex items-center justify-between">
           <div className="flex-1">
             <p className="text-xs font-semibold tracking-wider text-gray-500 uppercase mb-1">Project Memory</p>
             <h1 className="text-2xl font-bold text-gray-900">{memory.creatorPrompt}</h1>
@@ -276,16 +278,39 @@ export default function MemorySplitView() {
       </header>
 
       {/* Split View Container */}
-      <main className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+      <main className="flex-1 flex flex-col md:flex-row overflow-hidden">
         {/* Left Side (Desktop) / Top (Mobile): Creator + Photo */}
         <div className="flex-1 flex flex-col bg-gray-50 overflow-hidden">
           {/* Column Header */}
-          <div className="flex-shrink-0 px-6 py-3 bg-white border-b border-gray-200">
-            <p className="text-sm font-semibold text-gray-700">{memory.creatorName}'s Prompt</p>
+          <div className="flex-shrink-0 bg-white border-b border-gray-200">
+            {/* Mobile: Collapsible with toggle button */}
+            <button
+              onClick={() => setShowCreatorHeader(!showCreatorHeader)}
+              className="md:hidden w-full px-4 py-2 flex items-center justify-center gap-2 text-xs font-medium text-gray-500 hover:bg-gray-50 transition-colors active:bg-gray-100"
+              aria-label="Toggle creator section header"
+            >
+              <span>Section Info</span>
+              <ChevronDown
+                size={14}
+                className={`transition-transform duration-200 ${showCreatorHeader ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            {/* Mobile: Expandable header content */}
+            <div className={`md:hidden overflow-hidden transition-all duration-200 ${showCreatorHeader ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0'}`}>
+              <div className="px-4 py-3 border-t border-gray-100">
+                <p className="text-sm font-semibold text-gray-700">{memory.creatorName}'s Prompt</p>
+              </div>
+            </div>
+
+            {/* Desktop: Always visible */}
+            <div className="hidden md:block px-6 py-3">
+              <p className="text-sm font-semibold text-gray-700">{memory.creatorName}'s Prompt</p>
+            </div>
           </div>
 
           {/* Photo Container with Blurred Backdrop */}
-          <div className="flex-1 relative flex items-center justify-center p-6 overflow-hidden">
+          <div className="flex-1 relative flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-hidden">
             {/* Background Layer: Blurred backdrop to fill empty space */}
             <div className="absolute inset-0">
               <img
@@ -303,7 +328,7 @@ export default function MemorySplitView() {
             />
 
             {/* Creator Video PiP (Bottom Right Corner) */}
-            <div className="absolute bottom-8 right-8 w-36 h-36 lg:w-44 lg:h-44 rounded-full overflow-hidden border-4 border-white shadow-2xl bg-black">
+            <div className="absolute bottom-4 right-4 w-20 h-20 sm:w-28 sm:h-28 md:bottom-6 md:right-6 md:w-36 md:h-36 lg:bottom-8 lg:right-8 lg:w-44 lg:h-44 rounded-full overflow-hidden border-4 border-white shadow-2xl bg-black">
               <video
                 ref={creatorVideoRef}
                 src={memory.creatorVideoUrl}
@@ -328,16 +353,41 @@ export default function MemorySplitView() {
         </div>
 
         {/* Right Side (Desktop) / Bottom (Mobile): Friend Response */}
-        <div className="flex-1 flex flex-col bg-gray-50 overflow-hidden border-l border-gray-200">
+        <div className="flex-1 flex flex-col bg-gray-50 overflow-hidden md:border-l border-gray-200">
           {/* Column Header */}
-          <div className="flex-shrink-0 px-6 py-3 bg-white border-b border-gray-200">
-            <p className="text-sm font-semibold text-gray-700">
-              {memory.friendName ? `${memory.friendName}'s Response` : 'Friend\'s Response'}
-            </p>
+          <div className="flex-shrink-0 bg-white border-b border-gray-200">
+            {/* Mobile: Collapsible with toggle button */}
+            <button
+              onClick={() => setShowFriendHeader(!showFriendHeader)}
+              className="md:hidden w-full px-4 py-2 flex items-center justify-center gap-2 text-xs font-medium text-gray-500 hover:bg-gray-50 transition-colors active:bg-gray-100"
+              aria-label="Toggle friend section header"
+            >
+              <span>Section Info</span>
+              <ChevronDown
+                size={14}
+                className={`transition-transform duration-200 ${showFriendHeader ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            {/* Mobile: Expandable header content */}
+            <div className={`md:hidden overflow-hidden transition-all duration-200 ${showFriendHeader ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0'}`}>
+              <div className="px-4 py-3 border-t border-gray-100">
+                <p className="text-sm font-semibold text-gray-700">
+                  {memory.friendName ? `${memory.friendName}'s Response` : 'Friend\'s Response'}
+                </p>
+              </div>
+            </div>
+
+            {/* Desktop: Always visible */}
+            <div className="hidden md:block px-6 py-3">
+              <p className="text-sm font-semibold text-gray-700">
+                {memory.friendName ? `${memory.friendName}'s Response` : 'Friend\'s Response'}
+              </p>
+            </div>
           </div>
 
           {/* Video Container */}
-          <div className="flex-1 relative flex items-center justify-center p-6 bg-gray-100">
+          <div className="flex-1 relative flex items-center justify-center p-3 sm:p-4 md:p-6 bg-gray-100">
             <video
               ref={friendVideoRef}
               src={memory.friendVideoUrl}
@@ -354,7 +404,7 @@ export default function MemorySplitView() {
 
       {/* Footer Info */}
       <footer className="flex-shrink-0 bg-white border-t border-gray-200 py-2">
-        <div className="px-6 text-center">
+        <div className="px-4 md:px-6 text-center">
           <p className="text-xs text-gray-500">
             Created with <span className="text-red-400">♥</span> by Project Memory
             {memory.friendSubmittedAt && (
