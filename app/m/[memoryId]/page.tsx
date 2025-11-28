@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Memory } from '@/types/memory';
-import { Share2, Download, ChevronDown } from 'lucide-react';
+import { Share2, Download, ChevronDown, Play } from 'lucide-react';
 
 export default function MemorySplitView() {
   const params = useParams();
@@ -24,6 +24,9 @@ export default function MemorySplitView() {
   const [pipPosition, setPipPosition] = useState({ x: 0, y: 0 });
   const [isDraggingPip, setIsDraggingPip] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
+  // Creator video playback state
+  const [isCreatorPlaying, setIsCreatorPlaying] = useState(false);
 
   const creatorVideoRef = useRef<HTMLVideoElement>(null);
   const friendVideoRef = useRef<HTMLVideoElement>(null);
@@ -226,6 +229,19 @@ export default function MemorySplitView() {
     }
   };
 
+  // Toggle creator video play/pause
+  const toggleCreatorVideo = () => {
+    if (creatorVideoRef.current) {
+      if (isCreatorPlaying) {
+        creatorVideoRef.current.pause();
+        setIsCreatorPlaying(false);
+      } else {
+        creatorVideoRef.current.play();
+        setIsCreatorPlaying(true);
+      }
+    }
+  };
+
   // PIP Drag Event Handlers
   const handlePipMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -234,6 +250,9 @@ export default function MemorySplitView() {
     if (!photoContainerRef.current) return;
 
     const containerRect = photoContainerRef.current.getBoundingClientRect();
+
+    // Record start position for click detection
+    setDragStartPos({ x: e.clientX, y: e.clientY });
 
     setDragOffset({
       x: e.clientX - (containerRect.left + pipPosition.x),
@@ -260,9 +279,22 @@ export default function MemorySplitView() {
     setPipPosition({ x: newX, y: newY });
   };
 
-  const handlePipMouseUp = () => {
+  const handlePipMouseUp = (e: MouseEvent) => {
     setIsDraggingPip(false);
 
+    // Detect click vs drag (click = movement < 5px)
+    const dragDistance = Math.sqrt(
+      Math.pow(e.clientX - dragStartPos.x, 2) +
+      Math.pow(e.clientY - dragStartPos.y, 2)
+    );
+
+    if (dragDistance < 5) {
+      // It's a click, toggle video
+      toggleCreatorVideo();
+      return;
+    }
+
+    // It's a drag, apply snap logic
     if (!photoContainerRef.current) return;
 
     const container = photoContainerRef.current;
@@ -301,6 +333,9 @@ export default function MemorySplitView() {
     const touch = e.touches[0];
     const containerRect = photoContainerRef.current.getBoundingClientRect();
 
+    // Record start position for click detection
+    setDragStartPos({ x: touch.clientX, y: touch.clientY });
+
     setDragOffset({
       x: touch.clientX - (containerRect.left + pipPosition.x),
       y: touch.clientY - (containerRect.top + pipPosition.y)
@@ -328,8 +363,51 @@ export default function MemorySplitView() {
     setPipPosition({ x: newX, y: newY });
   };
 
-  const handlePipTouchEnd = () => {
-    handlePipMouseUp();
+  const handlePipTouchEnd = (e: TouchEvent) => {
+    setIsDraggingPip(false);
+
+    const touch = e.changedTouches[0];
+
+    // Detect tap vs drag (tap = movement < 5px)
+    const dragDistance = Math.sqrt(
+      Math.pow(touch.clientX - dragStartPos.x, 2) +
+      Math.pow(touch.clientY - dragStartPos.y, 2)
+    );
+
+    if (dragDistance < 5) {
+      // It's a tap, toggle video
+      toggleCreatorVideo();
+      return;
+    }
+
+    // It's a drag, apply snap logic
+    if (!photoContainerRef.current) return;
+
+    const container = photoContainerRef.current;
+    const containerRect = container.getBoundingClientRect();
+    const pipSize = getPipSize();
+    const snapThreshold = 50;
+
+    let newX = pipPosition.x;
+    let newY = pipPosition.y;
+
+    // Snap to left/right
+    if (pipPosition.x < snapThreshold) {
+      newX = 0;
+    } else if (pipPosition.x > containerRect.width - pipSize - snapThreshold) {
+      newX = containerRect.width - pipSize;
+    }
+
+    // Snap to top/bottom
+    if (pipPosition.y < snapThreshold) {
+      newY = 0;
+    } else if (pipPosition.y > containerRect.height - pipSize - snapThreshold) {
+      newY = containerRect.height - pipSize;
+    }
+
+    if (newX !== pipPosition.x || newY !== pipPosition.y) {
+      setPipPosition({ x: newX, y: newY });
+    }
   };
 
   // Helper function for responsive PIP sizing
@@ -519,14 +597,22 @@ export default function MemorySplitView() {
               <video
                 ref={creatorVideoRef}
                 src={memory.creatorVideoUrl}
-                className="w-full h-full object-cover pointer-events-none"
-                loop
+                className="w-full h-full object-cover"
                 playsInline
-                controls
-                onPlay={() => handlePlayPause('creator')}
-                onPause={() => handlePlayPause('creator')}
+                onPlay={() => setIsCreatorPlaying(true)}
+                onPause={() => setIsCreatorPlaying(false)}
+                onEnded={() => setIsCreatorPlaying(false)}
                 onTimeUpdate={() => handleTimeUpdate('creator')}
               />
+
+              {/* Play icon overlay when paused */}
+              {!isCreatorPlaying && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full bg-white/90 flex items-center justify-center shadow-xl">
+                    <Play size={20} fill="black" className="text-black ml-0.5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8" />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Sync Badge */}
