@@ -422,14 +422,24 @@ export default function MemorySplitView() {
             {/* Copy Link button */}
             <button
               onClick={copyLink}
-              className={`p-2 rounded-full transition-colors ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors text-sm font-medium ${
                 copySuccess
                   ? 'bg-green-100 text-green-600'
-                  : 'hover:bg-gray-100 text-gray-700'
+                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
               }`}
               aria-label="Copy link to clipboard"
             >
-              {copySuccess ? <Check size={20} /> : <Copy size={20} />}
+              {copySuccess ? (
+                <>
+                  <Check size={16} />
+                  <span>Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Copy size={16} />
+                  <span>Copy Link</span>
+                </>
+              )}
             </button>
 
             {/* Share button */}
