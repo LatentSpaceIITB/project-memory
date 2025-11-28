@@ -198,7 +198,8 @@ export async function extractVideoThumbnail(
 
   return new Promise((resolve) => {
     const video = document.createElement('video');
-    // Note: crossOrigin removed - Firebase Storage doesn't require it for same-origin access
+    // crossOrigin is required for canvas export, but needs Firebase Storage CORS config
+    video.crossOrigin = 'anonymous';
     video.src = videoUrl;
     video.muted = true; // Muted to avoid audio issues
     video.playsInline = true; // Prevent fullscreen on iOS
@@ -218,18 +219,26 @@ export async function extractVideoThumbnail(
         if (ctx) {
           // Draw video frame to canvas
           ctx.drawImage(video, 0, 0, 100, 100);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
 
-          // Cache to localStorage
-          if (typeof window !== 'undefined') {
-            try {
-              localStorage.setItem(`thumbnail-${cacheKey}`, dataUrl);
-            } catch (e) {
-              console.warn('Failed to cache thumbnail:', e);
+          // Try to export canvas - may fail if CORS is not configured
+          try {
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+
+            // Cache to localStorage
+            if (typeof window !== 'undefined') {
+              try {
+                localStorage.setItem(`thumbnail-${cacheKey}`, dataUrl);
+              } catch (e) {
+                console.warn('Failed to cache thumbnail:', e);
+              }
             }
-          }
 
-          resolve(dataUrl);
+            resolve(dataUrl);
+          } catch (corsError) {
+            // Canvas is tainted due to CORS - this is expected if Firebase Storage CORS is not configured
+            // Silently fail and return null - UI will show Play icon fallback
+            resolve(null);
+          }
         } else {
           resolve(null);
         }
