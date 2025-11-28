@@ -20,9 +20,14 @@ export default function MemorySplitView() {
   const [copySuccess, setCopySuccess] = useState(false);
   const [showCreatorHeader, setShowCreatorHeader] = useState(false);
   const [showFriendHeader, setShowFriendHeader] = useState(false);
+  // PIP positioning state
+  const [pipPosition, setPipPosition] = useState({ x: 0, y: 0 });
+  const [isDraggingPip, setIsDraggingPip] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
   const creatorVideoRef = useRef<HTMLVideoElement>(null);
   const friendVideoRef = useRef<HTMLVideoElement>(null);
+  const photoContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchMemory = async () => {
@@ -78,6 +83,59 @@ export default function MemorySplitView() {
       return () => clearTimeout(timer);
     }
   }, [memory, hasAutoPlayed]);
+
+  // Initialize PIP position to bottom-right on mount
+  useEffect(() => {
+    if (memory && photoContainerRef.current) {
+      const container = photoContainerRef.current;
+      const containerRect = container.getBoundingClientRect();
+      const pipSize = getPipSize();
+
+      const padding = window.innerWidth >= 1024 ? 32 :
+                     window.innerWidth >= 768 ? 24 : 16;
+
+      setPipPosition({
+        x: containerRect.width - pipSize - padding,
+        y: containerRect.height - pipSize - padding
+      });
+    }
+  }, [memory]);
+
+  // Global drag listeners
+  useEffect(() => {
+    if (isDraggingPip) {
+      document.addEventListener('mousemove', handlePipMouseMove);
+      document.addEventListener('mouseup', handlePipMouseUp);
+      document.addEventListener('touchmove', handlePipTouchMove, { passive: false });
+      document.addEventListener('touchend', handlePipTouchEnd);
+
+      return () => {
+        document.removeEventListener('mousemove', handlePipMouseMove);
+        document.removeEventListener('mouseup', handlePipMouseUp);
+        document.removeEventListener('touchmove', handlePipTouchMove);
+        document.removeEventListener('touchend', handlePipTouchEnd);
+      };
+    }
+  }, [isDraggingPip, dragOffset, pipPosition]);
+
+  // Window resize handler
+  useEffect(() => {
+    const handleResize = () => {
+      if (!photoContainerRef.current) return;
+
+      const container = photoContainerRef.current;
+      const containerRect = container.getBoundingClientRect();
+      const pipSize = getPipSize();
+
+      setPipPosition(prev => ({
+        x: Math.max(0, Math.min(prev.x, containerRect.width - pipSize)),
+        y: Math.max(0, Math.min(prev.y, containerRect.height - pipSize))
+      }));
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const copyLink = async () => {
     const url = window.location.href;
@@ -166,6 +224,120 @@ export default function MemorySplitView() {
         }
       }
     }
+  };
+
+  // PIP Drag Event Handlers
+  const handlePipMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!photoContainerRef.current) return;
+
+    const containerRect = photoContainerRef.current.getBoundingClientRect();
+
+    setDragOffset({
+      x: e.clientX - (containerRect.left + pipPosition.x),
+      y: e.clientY - (containerRect.top + pipPosition.y)
+    });
+
+    setIsDraggingPip(true);
+  };
+
+  const handlePipMouseMove = (e: MouseEvent) => {
+    if (!isDraggingPip || !photoContainerRef.current) return;
+
+    const container = photoContainerRef.current;
+    const containerRect = container.getBoundingClientRect();
+    const pipSize = getPipSize();
+
+    let newX = e.clientX - containerRect.left - dragOffset.x;
+    let newY = e.clientY - containerRect.top - dragOffset.y;
+
+    // Constrain within boundaries
+    newX = Math.max(0, Math.min(newX, containerRect.width - pipSize));
+    newY = Math.max(0, Math.min(newY, containerRect.height - pipSize));
+
+    setPipPosition({ x: newX, y: newY });
+  };
+
+  const handlePipMouseUp = () => {
+    setIsDraggingPip(false);
+
+    if (!photoContainerRef.current) return;
+
+    const container = photoContainerRef.current;
+    const containerRect = container.getBoundingClientRect();
+    const pipSize = getPipSize();
+    const snapThreshold = 50;
+
+    let newX = pipPosition.x;
+    let newY = pipPosition.y;
+
+    // Snap to left/right
+    if (pipPosition.x < snapThreshold) {
+      newX = 0;
+    } else if (pipPosition.x > containerRect.width - pipSize - snapThreshold) {
+      newX = containerRect.width - pipSize;
+    }
+
+    // Snap to top/bottom
+    if (pipPosition.y < snapThreshold) {
+      newY = 0;
+    } else if (pipPosition.y > containerRect.height - pipSize - snapThreshold) {
+      newY = containerRect.height - pipSize;
+    }
+
+    if (newX !== pipPosition.x || newY !== pipPosition.y) {
+      setPipPosition({ x: newX, y: newY });
+    }
+  };
+
+  const handlePipTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    e.preventDefault();
+
+    if (!photoContainerRef.current) return;
+
+    const touch = e.touches[0];
+    const containerRect = photoContainerRef.current.getBoundingClientRect();
+
+    setDragOffset({
+      x: touch.clientX - (containerRect.left + pipPosition.x),
+      y: touch.clientY - (containerRect.top + pipPosition.y)
+    });
+
+    setIsDraggingPip(true);
+  };
+
+  const handlePipTouchMove = (e: TouchEvent) => {
+    if (!isDraggingPip || !photoContainerRef.current) return;
+
+    e.preventDefault();
+
+    const touch = e.touches[0];
+    const container = photoContainerRef.current;
+    const containerRect = container.getBoundingClientRect();
+    const pipSize = getPipSize();
+
+    let newX = touch.clientX - containerRect.left - dragOffset.x;
+    let newY = touch.clientY - containerRect.top - dragOffset.y;
+
+    newX = Math.max(0, Math.min(newX, containerRect.width - pipSize));
+    newY = Math.max(0, Math.min(newY, containerRect.height - pipSize));
+
+    setPipPosition({ x: newX, y: newY });
+  };
+
+  const handlePipTouchEnd = () => {
+    handlePipMouseUp();
+  };
+
+  // Helper function for responsive PIP sizing
+  const getPipSize = () => {
+    const width = window.innerWidth;
+    if (width >= 1024) return 176; // lg: 44 * 4
+    if (width >= 768) return 144;  // md: 36 * 4
+    if (width >= 640) return 112;  // sm: 28 * 4
+    return 80;                     // mobile: 20 * 4
   };
 
   if (loading) {
@@ -310,7 +482,10 @@ export default function MemorySplitView() {
           </div>
 
           {/* Photo Container with Blurred Backdrop */}
-          <div className="flex-1 relative flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-hidden">
+          <div
+            ref={photoContainerRef}
+            className="flex-1 relative flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-visible"
+          >
             {/* Background Layer: Blurred backdrop to fill empty space */}
             <div className="absolute inset-0">
               <img
@@ -327,8 +502,18 @@ export default function MemorySplitView() {
               className="relative max-w-full max-h-full object-contain z-10"
             />
 
-            {/* Creator Video PiP (Bottom Right Corner) */}
-            <div className="absolute bottom-4 right-4 w-20 h-20 sm:w-28 sm:h-28 md:bottom-6 md:right-6 md:w-36 md:h-36 lg:bottom-8 lg:right-8 lg:w-44 lg:h-44 rounded-full overflow-hidden border-4 border-white shadow-2xl bg-black">
+            {/* Creator Video PiP (Draggable) */}
+            <div
+              className="absolute w-20 h-20 sm:w-28 sm:h-28 md:w-36 md:h-36 lg:w-44 lg:h-44 rounded-full overflow-hidden border-4 border-white shadow-2xl bg-black z-20"
+              style={{
+                left: `${pipPosition.x}px`,
+                top: `${pipPosition.y}px`,
+                cursor: isDraggingPip ? 'grabbing' : 'grab',
+                transition: isDraggingPip ? 'none' : 'left 200ms ease-out, top 200ms ease-out'
+              }}
+              onMouseDown={handlePipMouseDown}
+              onTouchStart={handlePipTouchStart}
+            >
               <video
                 ref={creatorVideoRef}
                 src={memory.creatorVideoUrl}
@@ -344,7 +529,7 @@ export default function MemorySplitView() {
 
             {/* Sync Badge */}
             {isSynced && (
-              <div className="absolute top-4 right-4 bg-[#FF6B6B]/95 backdrop-blur-sm px-3 py-1.5 rounded-full flex items-center gap-2 shadow-lg">
+              <div className="absolute top-4 right-4 bg-[#FF6B6B]/95 backdrop-blur-sm px-3 py-1.5 rounded-full flex items-center gap-2 shadow-lg z-30">
                 <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
                 <span className="text-xs font-bold text-white">Videos Synced</span>
               </div>
