@@ -40,12 +40,6 @@ export default function Home() {
             >
               Create a Memory
             </Link>
-            <Link
-              href="/SETUP.md"
-              className="bg-white border-2 border-gray-200 px-8 py-4 rounded-full font-bold text-lg hover:bg-gray-50 transition-all text-gray-900 shadow-sm"
-            >
-              Setup Guide
-            </Link>
           </div>
         </div>
 
