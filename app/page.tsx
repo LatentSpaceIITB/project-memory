@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Camera, Video, Users, Sparkles } from 'lucide-react';
+import PolaroidCard from '@/components/PolaroidCard';
 
 export default function Home() {
   return (
@@ -44,6 +45,40 @@ export default function Home() {
             </Link>
           </div>
         </div>
+
+        {/* See It In Action - Real User Examples */}
+        <section className="mb-20 overflow-hidden">
+          <div className="text-center mb-12">
+            <h3 className="text-3xl font-bold text-gray-900 mb-3">
+              See It In Action
+            </h3>
+            <p className="text-gray-600 text-lg">
+              Real memories from our users
+            </p>
+          </div>
+
+          {/* Polaroid Grid */}
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto px-4">
+            <PolaroidCard
+              imageSrc="/examples/user-example-1.png"
+              caption="Story Of Secret Picture"
+              tiltClass="rotate-[-3deg]"
+              translateClass="md:translate-y-[-8px]"
+            />
+            <PolaroidCard
+              imageSrc="/examples/user-example-2.png"
+              caption="The Satelite Launch From Home-Town"
+              tiltClass="rotate-[1deg]"
+              translateClass="md:translate-y-[4px]"
+            />
+            <PolaroidCard
+              imageSrc="/examples/user-example-3.png"
+              caption="Delivering Medicines In College"
+              tiltClass="rotate-[-2deg]"
+              translateClass="md:translate-y-[-12px]"
+            />
+          </div>
+        </section>
 
         {/* How It Works */}
         <div className="grid md:grid-cols-3 gap-8 mb-20">
