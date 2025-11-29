@@ -9,8 +9,10 @@ export default function Home() {
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">Project Memory</h1>
           <Link
-            href="https://github.com/yourusername/project-memory"
+            href="https://github.com/LatentSpaceIITB/project-memory"
             className="text-sm text-gray-600 hover:text-gray-900 transition"
+            target="_blank"
+            rel="noopener noreferrer"
           >
             GitHub
           </Link>
