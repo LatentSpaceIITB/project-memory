@@ -17,6 +17,7 @@ import {
 import ThreadRail from '@/components/ThreadRail';
 import ThreadDrawer from '@/components/ThreadDrawer';
 import ThreadRecordingInterface from '@/components/ThreadRecordingInterface';
+import ExportButton from '@/components/ExportButton';
 
 export default function MemorySplitView() {
   const params = useParams();
@@ -624,6 +625,17 @@ export default function MemorySplitView() {
             >
               <Share2 size={20} className="text-gray-700" />
             </button>
+
+            {/* Export button - only show when memory is completed */}
+            {memory.status === 'completed' && (
+              <ExportButton
+                memory={memory}
+                currentVideoUrl={
+                  playlist[activeVideoState.playlistIndex || 0]?.videoUrl ||
+                  memory.friendVideoUrl || ''
+                }
+              />
+            )}
           </div>
         </div>
       </header>
